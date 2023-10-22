@@ -1,0 +1,175 @@
+- name: instal packages
+  hosts: server
+  remote_user: debian
+  become: yes
+
+  tasks:
+    - name: ensure packages on latest version
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: full
+      tags:
+        - system
+
+    - name: install java
+      ansible.builtin.apt:
+        name: default-jre-headless
+        state: present
+      tags:
+        - system
+
+    - name: minecraft user
+      ansible.builtin.user:
+        name: minecraft
+        shell: /bin/bash
+        create_home: yes
+      tags:
+        - system
+
+    - name: minecraft .ssh directory
+      ansible.builtin.file:
+        path: /home/minecraft/.ssh
+        state: directory
+        owner: minecraft
+        group: minecraft
+        mode: '0700'
+      tags:
+        - system
+
+    - name: copy authorized_keys
+      ansible.builtin.copy:
+        src: /home/debian/.ssh/authorized_keys
+        dest: /home/minecraft/.ssh/authorized_keys
+        remote_src: true
+        owner: minecraft
+        group: minecraft
+        mode: '0600'
+      tags:
+        - system
+
+- name: stop services
+  hosts: server
+  remote_user: debian
+  become: yes
+
+  tasks:
+    - name: stop survival server
+      ansible.builtin.systemd_service:
+        name: survival-minecraft.service
+        state: stopped
+      tags:
+        - survival
+
+    - name: stop pvp server
+      ansible.builtin.systemd_service:
+        name: pvp-minecraft.service
+        state: stopped
+      tags:
+        - pvp
+
+- name: configure minecraft servers
+  hosts: server
+  remote_user: minecraft
+
+  tasks:
+    - name: downloads directory
+      ansible.builtin.file:
+        path: /home/minecraft/downloads
+        state: directory
+      tags:
+        - download
+
+    - name: download paper
+      ansible.builtin.get_url:
+        url: https://api.papermc.io/v2/projects/paper/versions/1.20.2/builds/241/downloads/paper-1.20.2-241.jar
+        dest: /home/minecraft/downloads/paper.jar
+        checksum: sha256:b9d6602d775576d25653bf67d4983255d876f61079c19722ae77ff095e322712
+      tags:
+        - download
+
+    - name: download velocity
+      ansible.builtin.get_url:
+        url: https://api.papermc.io/v2/projects/velocity/versions/3.2.0-SNAPSHOT/builds/276/downloads/velocity-3.2.0-SNAPSHOT-276.jar
+        dest: /home/minecraft/downloads/velocity.jar
+        checksum: sha256:cf4f5796aa57aa305ca5a0387b13bad8f1075f924a9d8ab798ac01b3e0238b48
+      tags:
+        - download
+
+    - name: copy survival server configuration
+      ansible.builtin.copy:
+        src: survival/
+        dest: /home/minecraft/survival
+      register: survival_configuration
+      tags:
+        - survival
+
+    - name: copy pvp server configuration
+      ansible.builtin.copy:
+        src: pvp/
+        dest: /home/minecraft/pvp
+      register: pvp_configuration
+      tags:
+        - pvp
+
+    - name: copy velocity server configuration
+      ansible.builtin.copy:
+        src: velocity/
+        dest: /home/minecraft/velocity
+      register: velocity_configuration
+      tags:
+        - velocity
+
+- name: configure services
+  hosts: server
+  remote_user: debian
+  become: yes
+
+  tasks:
+    - name: copy survival systemd configuration
+      ansible.builtin.copy:
+        src: systemd/survival-minecraft.service
+        dest: /etc/systemd/system/survival-minecraft.service
+      tags:
+        - survival
+    - name: start survival server
+      ansible.builtin.systemd_service:
+        name: survival-minecraft.service
+        state: started
+        enabled: true
+      tags:
+        - survival
+
+    - name: copy pvp systemd configuration
+      ansible.builtin.copy:
+        src: systemd/pvp-minecraft.service
+        dest: /etc/systemd/system/pvp-minecraft.service
+      tags:
+        - pvp
+    - name: start pvp server
+      ansible.builtin.systemd_service:
+        name: pvp-minecraft.service
+        state: started
+        enabled: true
+      tags:
+        - pvp
+
+    - name: copy velocity systemd configuration
+      ansible.builtin.copy:
+        src: systemd/velocity.service
+        dest: /etc/systemd/system/velocity.service
+      tags:
+        - velocity
+    - name: start velocity
+      ansible.builtin.systemd_service:
+        name: velocity.service
+        state: started
+        enabled: true
+      tags:
+        - velocity
+    - name: restart velocity
+      ansible.builtin.systemd_service:
+        name: velocity.service
+        state: restarted
+      when: velocity_configuration.changed
+      tags:
+        - velocity

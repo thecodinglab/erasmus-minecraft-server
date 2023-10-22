@@ -1,0 +1,18 @@
+[Unit]
+Description=Velocity
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=minecraft
+WorkingDirectory=/home/minecraft/velocity
+
+ExecStart=/usr/bin/java -Xms4G -Xmx4G -XX:+UseG1GC -XX:G1HeapRegionSize=4M -XX:+UnlockExperimentalVMOptions -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch -XX:MaxInlineLevel=15 -jar /home/minecraft/downloads/velocity.jar
+
+Restart=always
+RestartSec=30
+
+StandardInput=null
+
+[Install]
+WantedBy=multi-user.target
