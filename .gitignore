@@ -6,3 +6,5 @@ terraform.tfstate*
 
 # exclude paper config due to it containing the velocity secret
 files/**/paper-global.yml
+
+ops.json
